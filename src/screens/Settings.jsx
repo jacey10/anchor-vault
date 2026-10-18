@@ -1,0 +1,279 @@
+import React, { useState, useEffect, useCallback } from 'react'; // <-- Added useCallback
+import { getSetting, updateSetting, getTransactions } from '../lib/storage';
+import { formatNaira } from '../lib/format';
+import InstallAppCard from '../components/InstallAppCard';
+import { useRegisterRefresh } from '../hooks/RefreshContext'; // <-- Added for pull-to-refresh
+import { getThemePreference, setThemePreference, THEME_OPTIONS } from '../lib/theme'; // <-- Added for the theme toggle
+import { useNavigate } from 'react-router-dom';
+
+export default function Settings() {
+  const [exchangeRate, setExchangeRate] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftRate, setDraftRate] = useState('');
+  const [impulseBudget, setImpulseBudget] = useState(null);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [draftBudget, setDraftBudget] = useState('');
+  const [themePref, setThemePref] = useState(getThemePreference()); // <-- Added for the theme toggle
+  const navigate = useNavigate();
+
+  // Define the refresh logic for pull-to-refresh
+  const refreshData = useCallback(async () => {
+    const [rate, budget] = await Promise.all([
+      getSetting('exchange_rate'),
+      getSetting('impulse_budget'),
+    ]);
+    setExchangeRate(rate);
+    setDraftRate(String(rate));
+    setImpulseBudget(budget);
+    setDraftBudget(String(budget));
+  }, []);
+
+  // Register it with the global provider
+  useRegisterRefresh(refreshData);
+
+  useEffect(() => {
+    getSetting('exchange_rate').then(val => {
+      setExchangeRate(val);
+      setDraftRate(String(val));
+    });
+    getSetting('impulse_budget').then(val => {
+      setImpulseBudget(val);
+      setDraftBudget(String(val));
+    });
+  }, []);
+
+  const handleUpdateRate = async (e) => {
+    e.preventDefault();
+    const newRate = Number(draftRate);
+    if (newRate > 0) {
+      await updateSetting('exchange_rate', newRate);
+      setExchangeRate(newRate);
+      setIsEditing(false);
+    }
+  };
+
+  // Impulse budget is optional, so unlike exchange rate we allow saving 0
+  // (treated as "no budget" downstream in ImpulseInsight).
+  const handleUpdateBudget = async (e) => {
+    e.preventDefault();
+    const newBudget = Number(draftBudget);
+    if (newBudget >= 0) {
+      await updateSetting('impulse_budget', newBudget);
+      setImpulseBudget(newBudget);
+      setIsEditingBudget(false);
+    }
+  };
+
+  // Save the theme choice in the browser and apply it right away
+  const handleThemeChange = (preference) => {
+    setThemePreference(preference);
+    setThemePref(preference);
+  };
+
+  const handleExport = async () => {
+    const transactions = await getTransactions();
+    if (transactions.length === 0) {
+      alert("No transactions to export yet!");
+      return;
+    }
+    const headers = ['Date', 'Type', 'Category/Person', 'Amount', 'Currency', 'Note'];
+    const rows = transactions.map(tx => [
+      tx.date,
+      tx.type,
+      tx.category || tx.person || tx.source || 'N/A',
+      tx.amount,
+      tx.currency,
+      `"${(tx.note || '').replace(/"/g, '""')}"` // Escape quotes in notes
+    ]);
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `anchor-finance-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/home`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Anchor Vault',
+          text: 'Take control of your personal finances with Anchor Vault.',
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Anchor Vault link copied to clipboard!');
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Unable to share Anchor Vault:', error);
+        alert('Unable to share the link. Please try again.');
+      }
+    }
+  };
+
+  return (
+    <div className="screen">
+      <h1 className="screen-title">Settings</h1>
+      <p className="screen-sub">Manage your app preferences.</p>
+      <div className="list-wrap">
+        <div className="list-row">
+          <div className="list-row-content">
+            <div className="list-row-title">Exchange Rate (NGN/USD)</div>
+            <div className="list-row-meta">
+              {isEditing ? (
+                <form onSubmit={handleUpdateRate} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {/* If it's an input field */}
+                  <input 
+                    type="number" 
+                    value={draftRate === null ? '' : draftRate} 
+                    onChange={(e) => setDraftRate(e.target.value)} 
+                    className="form-input" 
+                    style={{ width: 100, padding: 6 }}
+                    autoFocus
+                  />
+                  {/* If it's just text displayed on the screen */}
+                  {exchangeRate === null ? '...' : exchangeRate}
+                  <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12 }}>Save</button>
+                  <button type="button" className="btn btn-ghost" onClick={() => { setIsEditing(false); setDraftRate(String(exchangeRate)); }} style={{ padding: '6px 12px', fontSize: 12 }}>Cancel</button>
+                </form>
+              ) : (
+                `1 USD = ${formatNaira(exchangeRate)}`
+              )}
+            </div>
+          </div>
+          {!isEditing && (
+            <button className="btn btn-outline" onClick={() => setIsEditing(true)}>Edit</button>
+          )}
+        </div>
+        <div className="list-row">
+          <div className="list-row-content">
+            <div className="list-row-title">Impulse Budget</div>
+            <div className="list-row-meta">
+              {isEditingBudget ? (
+                <form onSubmit={handleUpdateBudget} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input 
+                    type="number" 
+                    value={draftBudget === null ? '' : draftBudget} 
+                    onChange={(e) => setDraftBudget(e.target.value)} 
+                    className="form-input" 
+                    style={{ width: 100, padding: 6 }}
+                    autoFocus
+                  />
+                  <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12 }}>Save</button>
+                  <button type="button" className="btn btn-ghost" onClick={() => { setIsEditingBudget(false); setDraftBudget(String(impulseBudget)); }} style={{ padding: '6px 12px', fontSize: 12 }}>Cancel</button>
+                </form>
+              ) : (
+                impulseBudget ? formatNaira(impulseBudget) : 'Not set'
+              )}
+            </div>
+          </div>
+          {!isEditingBudget && (
+            <button className="btn btn-outline" onClick={() => setIsEditingBudget(true)}>Edit</button>
+          )}
+        </div>
+        <div className="list-row">
+          <div className="list-row-content">
+            <div className="list-row-title">Export Data</div>
+            <div className="list-row-meta">Download all transactions as CSV</div>
+          </div>
+          <button className="btn btn-outline" onClick={handleExport}>Export</button>
+        </div>
+      </div>
+      <h2 className="section-title">Appearance</h2>
+      <div className="list-wrap">
+        <div className="list-row">
+          <div className="list-row-content">
+            <div className="list-row-title">Theme</div>
+            <div className="list-row-meta">Light, dark, or match your phone</div>
+          </div>
+          <div className="theme-toggle" role="group" aria-label="Theme">
+            {THEME_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                className={`theme-option ${themePref === option.key ? 'theme-option-active' : ''}`}
+                aria-pressed={themePref === option.key}
+                onClick={() => handleThemeChange(option.key)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <h2 className="section-title">App Experience</h2>
+      <div className="list-wrap">
+        <InstallAppCard />
+      </div>
+      
+      <h2 className="section-title">About Anchor Vault</h2>
+
+      <div className="list-wrap">
+        <button
+          type="button"
+          className="list-row about-list-row"
+          onClick={() => navigate('/home')}
+        >
+          <div className="list-row-content">
+            <div className="list-row-title">About Anchor Vault</div>
+            <div className="list-row-meta">
+              Learn about Anchor Vault and its features.
+            </div>
+          </div>
+          <span className="about-arrow" aria-hidden="true">›</span>
+        </button>
+
+        <button
+          type="button"
+          className="list-row about-list-row"
+          onClick={handleShare}
+        >
+          <div className="list-row-content">
+            <div className="list-row-title">Share Anchor Vault</div>
+            <div className="list-row-meta">
+              Share the app with friends and colleagues.
+            </div>
+          </div>
+          <span className="about-arrow" aria-hidden="true">›</span>
+        </button>
+
+        <button
+          type="button"
+          className="list-row about-list-row"
+          onClick={() => navigate('/app/help')}
+        >
+          <div className="list-row-content">
+            <div className="list-row-title">Help &amp; How to Use</div>
+            <div className="list-row-meta">
+              Learn how to use Anchor Vault's features.
+            </div>
+          </div>
+          <span className="about-arrow" aria-hidden="true">›</span>
+        </button>
+
+        <button
+          type="button"
+          className="list-row about-list-row"
+          onClick={() => navigate('/app/updates')}
+        >
+          <div className="list-row-content">
+            <div className="list-row-title">What's New</div>
+            <div className="list-row-meta">
+              Discover the latest features and improvements.
+            </div>
+          </div>
+          <span className="about-arrow" aria-hidden="true">›</span>
+        </button>
+      </div>
+      
+    </div>
+  );
+}
