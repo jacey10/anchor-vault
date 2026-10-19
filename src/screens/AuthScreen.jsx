@@ -68,7 +68,7 @@ export default function AuthScreen({ defaultMode = 'signin' }) {
     <div className="auth-split-screen">
       {/* Left Side: Visuals */}
       <div className="auth-visuals">
-        <img src="/auth-bg.png" alt="Financial Future" className="auth-bg-image" />
+        <img src="/anchor-vault/auth-bg.png" alt="Financial Future" className="auth-bg-image" />
         <div className="auth-overlay-text">
           {/* You can add a quote or branding here if you want */}
         </div>

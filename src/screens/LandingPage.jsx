@@ -87,7 +87,7 @@ export default function LandingPage() {
             <p className="hero-note">No credit card required • Free forever plan</p>
           </div>
           <div className="hero-image">
-            <img src="/auth-bg.png" alt="Financial Growth" />
+            <img src="/anchor-vault/auth-bg.png" alt="Financial Growth" />
           </div>
         </div>
       </section>
