@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Anchor Vault</title>
+    <script>
+      const segmentCount = 1;
+      const location = window.location;
+      const base = location.pathname.split('/').slice(0, 2).join('/');
+      const redirect = location.pathname.slice(base.length);
+
+      sessionStorage.redirect = redirect + location.search + location.hash;
+      location.replace(base + '/');
+    </script>
+  </head>
+  <body>
+    Redirecting to Anchor Vault...
+  </body>
+</html>

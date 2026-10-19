@@ -34,6 +34,18 @@
         } catch (e) {}
       })();
     </script>
+
+    <script>
+      (function () {
+        const redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+
+        if (redirect && redirect.startsWith('/')) {
+          const base = '/anchor-vault';
+          history.replaceState(null, '', base + redirect);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
