@@ -35,14 +35,16 @@
       })();
     </script>
 
-    <script>
+   <script>
       (function () {
-        const redirect = sessionStorage.redirect;
-        delete sessionStorage.redirect;
+        var redirect = sessionStorage.getItem('anchor-vault-redirect');
 
-        if (redirect && redirect.startsWith('/')) {
-          const base = '/anchor-vault';
-          history.replaceState(null, '', base + redirect);
+        if (redirect) {
+          sessionStorage.removeItem('anchor-vault-redirect');
+
+          if (redirect.startsWith('/') && !redirect.startsWith('//')) {
+            history.replaceState(null, '', '/anchor-vault' + redirect);
+          }
         }
       })();
     </script>

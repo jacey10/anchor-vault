@@ -1,19 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <title>Anchor Vault</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting to Anchor Vault</title>
     <script>
-      const segmentCount = 1;
-      const location = window.location;
-      const base = location.pathname.split('/').slice(0, 2).join('/');
-      const redirect = location.pathname.slice(base.length);
+      (function () {
+        var base = '/anchor-vault';
+        var path = window.location.pathname;
 
-      sessionStorage.redirect = redirect + location.search + location.hash;
-      location.replace(base + '/');
+        if (path === base || path === base + '/') {
+          window.location.replace(base + '/');
+          return;
+        }
+
+        var route = path.startsWith(base + '/')
+          ? path.slice(base.length)
+          : path;
+
+        var redirect = route + window.location.search + window.location.hash;
+
+        sessionStorage.setItem('anchor-vault-redirect', redirect);
+        window.location.replace(base + '/');
+      })();
     </script>
   </head>
   <body>
-    Redirecting to Anchor Vault...
+    <p>Redirecting to Anchor Vault...</p>
   </body>
 </html>
